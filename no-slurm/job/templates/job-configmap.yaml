@@ -1,0 +1,84 @@
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: wf-{{ .Values.Deployment.name }}
+  namespace: {{ .Values.Deployment.namespace }}
+data:
+  wf.sh: |
+    #!/bin/bash
+
+    # Define the namespace directory
+    NAMESPACE_DIR=~/{{ .Values.Deployment.namespace }}
+
+    # Find the most recently modified directory in the namespace directory
+    for dir in $(ls -t $NAMESPACE_DIR); do
+      if [ -d $NAMESPACE_DIR/$dir ]; then
+        # Set the pod root path to the most recently modified directory
+        export POD_ROOT_PATH=$NAMESPACE_DIR/$dir
+        echo "POD_ROOT_PATH: $POD_ROOT_PATH"
+        break
+      fi
+    done
+
+    # Extract the node name from the hostname
+    export NODE_NAME=$(hostname | awk -F'-' '{print $2}')
+
+    # If the node name is "fs", set the node number to 7, otherwise use the node name
+    export NODE_NUMBER=$([ "$NODE_NAME" == "fs" ] && echo 7 || echo $NODE_NAME)
+
+    # Define the PR and LB hosts
+    export PR_HOST=129.57.177.$NODE_NUMBER
+    export LB_HOST=129.57.177.135
+    echo "LB_HOST: $LB_HOST, PR_HOST: $PR_HOST"
+
+    # Pull and run the docker image
+    
+
+    echo -e "set session s1\nset outputFilePrefix s1\nset outputDir \$HOME/ersap/output\nset logDir \$HOME/ersap/log\nset threads {{.Values.Deployment.cpuUsage}}\nrun local" > ~/x.ersap
+
+    docker pull {{ .Values.Deployment.ersapSettings.image }}
+    docker run --name vd-ersap -d --rm --net=host -e "LB_HOST=$LB_HOST" -e "PR_HOST=$PR_HOST" -v $HOME/x.ersap:/x.ersap --entrypoint {{ .Values.Deployment.ersapSettings.cmd }} {{ .Values.Deployment.ersapSettings.image }}  {{ .Values.Deployment.ersapSettings.file }}
+    #####--cpus={{.Values.Deployment.cpuUsage}}
+
+    # Get the ID of the last run container
+    export CONTAINER_ID=$(docker ps -l -q)
+
+    # Store the container ID for later use
+    echo $CONTAINER_ID > $POD_ROOT_PATH/containers/wf/containerid
+
+    # Wait for the container to start
+    sleep 10
+
+    # Get the process group ID (PGID) of the process in the container with "UseNUMA" in its command
+    export PGID=$(docker top $CONTAINER_ID -eo pid,cmd | grep UseNUMA | awk '{print $1}')
+
+    # Store the PGID for later use
+    echo $PGID > $POD_ROOT_PATH/containers/wf/pgid
+    echo "PGID: $PGID"
+
+    # Keep the process alive for the specified duration
+    sleep $1
+
+    # Kill the container
+    docker stop $CONTAINER_ID; docker rm $CONTAINER_ID
+
+
+---
+
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: prom-{{ .Values.Deployment.name }}
+  namespace: {{ .Values.Deployment.namespace }}
+data:
+  prom.sh: |
+    #!/bin/bash
+
+    export GROUP_FOR_CONFIG={{ "{{.ExeBase}}:{{.Username}}:{{.PID}}" | quote }}
+    export CMDS_FOR_CONFIG="java"
+
+    sleep 8
+    
+    docker run --name vk-exporter -d -e GROUP_FOR_CONFIG=$GROUP_FOR_CONFIG -e CMDS_FOR_CONFIG=$CMDS_FOR_CONFIG -e PROCESS_EXPORTER_PORT=$PROCESS_EXPORTER_PORT \
+     --net=host -v /proc:/host_proc jlabtsai/process-exporter:pgid-go
+

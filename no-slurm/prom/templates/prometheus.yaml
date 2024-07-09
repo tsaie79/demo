@@ -1,0 +1,64 @@
+apiVersion: monitoring.coreos.com/v1
+kind: Prometheus
+metadata:
+  name: {{ .Values.Deployment.name}}
+  namespace: {{ .Values.Prometheus.namespace}}
+  labels:
+    app.kubernetes.io/component: prometheus
+    app.kubernetes.io/instance: k8s
+    app.kubernetes.io/name: prometheus
+    app.kubernetes.io/part-of: kube-prometheus
+    app.kubernetes.io/version: 2.32.1
+spec:
+  image: quay.io/prometheus/prometheus:v2.32.1
+  nodeSelector:
+      kubernetes.io/os: linux
+  replicas: 1
+  resources:
+    requests:
+      memory: 400Mi
+  ruleSelector: {}
+  securityContext:
+    fsGroup: 2000
+    runAsNonRoot: true
+    runAsUser: 1000
+  serviceAccountName: {{ .Values.Prometheus.serviceaccount}}
+  # serviceMonitorNamespaceSelector: {} #match all namespaces
+  serviceMonitorNamespaceSelector:
+    matchLabels:
+      kubernetes.io/metadata.name: {{ .Values.Deployment.namespace}}
+  serviceMonitorSelector: 
+    matchLabels:
+      app: {{ .Values.Deployment.name}}
+  version: 2.32.1
+  retention: 720d
+  storage:
+    volumeClaimTemplate:
+      spec:
+        storageClassName: local-storage-{{ .Values.Deployment.name}}
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: {{ .Values.PersistentVolume.size}}
+
+---
+# add service for prometheus
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus-{{ .Values.Deployment.name}}
+  namespace: {{ .Values.Prometheus.namespace}}
+  labels:
+    app.kubernetes.io/component: prometheus
+    app.kubernetes.io/instance: k8s
+    app.kubernetes.io/name: prometheus
+    app.kubernetes.io/part-of: kube-prometheus
+    app.kubernetes.io/version: 2.32.1
+spec:
+  ports:
+    - name: web
+      port: 9090
+      targetPort: 9090
+  selector:
+    prometheus: {{ .Values.Deployment.name}}
+  type: ClusterIP

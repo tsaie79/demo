@@ -1,0 +1,15 @@
+Deployment:
+  name: ersap-test4
+  namespace: default
+  replicas: 1
+
+PersistentVolume:
+  node: jiriaf2302-control-plane
+  path: /var/prom
+  size: 5Gi
+  
+Prometheus:
+  serviceaccount: prometheus-k8s
+  namespace: monitoring
+
+#https://github.com/prometheus-operator/kube-prometheus/blob/main/docs/customizations/monitoring-additional-namespaces.md

@@ -1,0 +1,56 @@
+Deployment:
+  name: this-name-is-changing
+  namespace: default
+  replicas: 1
+  serviceMonitorLabel: ersap-test4 # this is the label for the serviceMonitor. It can be the same for multiple deployments if using a single prometheus instance.
+
+  cpuUsage: "1"
+  
+  ersapSettings:
+    image: jlabtsai/ersap:thread #gurjyan/ersap:v0.1
+    cmd: /ersap/run-pipeline-node.sh
+    file: /x.ersap
+
+Service:
+- name:  ersap-exporter
+  protocol: TCP
+  port:  2221
+  originalPort: 2221
+  path: /metrics
+  interval: 15s
+- name: process-exporter
+  protocol: TCP
+  port: 1776
+  originalPort: 1776
+  path: /metrics
+  interval: 15s
+- name: ejfat-exporter
+  protocol: TCP
+  port: 8088
+  originalPort: 8088
+  path: /metrics
+  interval: 15s
+- name: jrm-exporter
+  protocol: TCP
+  port:  1990
+  originalPort: 1990
+  path: /metrics/resource
+  interval: 15s
+- name: ersap-queue
+  protocol: TCP
+  port:  2222
+  originalPort: 2222
+  path: /metrics/resource
+  interval: 15s
+
+
+
+PersistentVolume:
+  node: jiriaf2302-control-plane
+  path: /var/prom
+  size: 5Gi
+Prometheus:
+  serviceaccount: prometheus-k8s
+  namespace: monitoring
+
+#https://github.com/prometheus-operator/kube-prometheus/blob/main/docs/customizations/monitoring-additional-namespaces.md

@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.Deployment.name}}
+  namespace: {{ .Values.Deployment.namespace}}
+  labels:
+    app: {{ .Values.Deployment.name}} # this has to change to unchanged servieMonitorLabel if using single prometheus instance for serveral deployments.
+spec:
+  type: ClusterIP
+  selector:
+    app: {{ .Values.Deployment.name}}
+  ports: [{{- range $index, $element := .Values.Service }}
+    {{- if $index }},{{ end }}
+    {
+      name: {{ printf "%s" $element.name | quote }},      
+      protocol: {{ $element.protocol | quote }},
+      port: {{ $element.port }},
+      targetPort: {{ $element.port }}
+    }
+    {{- end }}]

@@ -1,0 +1,33 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{.Values.Deployment.name}}
+  namespace: {{.Values.Deployment.namespace}}
+  labels:
+    app: {{.Values.Deployment.serviceMonitorLabel}}
+spec:
+  selector:
+    matchLabels:
+      app: {{.Values.Deployment.name}}
+  endpoints: [
+    {{- range $index, $element := .Values.Service }}
+        {{- if $index }},{{ end }}
+        {
+          port: {{ printf "%s" $element.name | quote }},
+          interval: {{ $element.interval | quote }},
+          path: {{ $element.path | quote }},
+          {{- if eq $element.name "jrm-exporter" }}
+          tlsConfig: {
+            insecureSkipVerify: true
+          },
+          scheme: "https"
+          {{- end }}
+        }
+        {{- end }}
+  ]
+  # - port: http1
+  #   interval: 15s
+  #   path: /metrics
+  # - port: http2
+  #   interval: 15s
+  #   path: /metrics
